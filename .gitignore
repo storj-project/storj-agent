@@ -19,3 +19,8 @@ file_base64.txt
 .vscode/
 *.swp
 *.swo
+
+# Runtime files
+*.log
+moltbook_state.json
+twitterdata.txt

@@ -1,3 +1,4 @@
+import os
 from blockchain import blockchain
 from management.StorjAgent import StorjAgent
 from subagents import employees
@@ -8,24 +9,25 @@ from supabase import create_client, Client
 
 import tweepy
 import requests
-import os
 
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
 CONSUMER_KEY = os.getenv("TWITTER_CONSUMER_KEY", "")
 CONSUMER_SECRET = os.getenv("TWITTER_CONSUMER_SECRET", "")
 ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN", "")
 ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET", "")
+BEARER = os.getenv("TWITTER_BEARER_TOKEN", "")
+V2_KEY = "REDACTED"
 
 # Supabase Credentials
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-SUPABASE_TABLE = "paid_signatures"
+SUPABASE_TABLE = "paid_signatures"  # Table where we store paid signatures
 
 # Storage Configuration
-STORJ_GATEWAY = os.getenv("STORJ_GATEWAY", "https://link.storjshare.io/s/firstbucket")
+STORJ_GATEWAY = "https://link.storjshare.io/s/firstbucket"
 STORJ_ACCESS_KEY = os.getenv("STORJ_ACCESS_KEY", "")
-STORJ_ENDPOINT = os.getenv("STORJ_ENDPOINT", "https://eu1.gateway.storjshare.io")
-BUCKET_NAME = os.getenv("STORJ_BUCKET", "firstbucket")
+STORJ_ENDPOINT = "https://eu1.gateway.storjshare.io"
+BUCKET_NAME = "firstbucket"
 
 
 def post_tweet_v2(message: str) -> str:
@@ -44,10 +46,11 @@ def post_tweet_v2(message: str) -> str:
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 import base64
 
 # Configuration
-YOUR_WALLET = os.getenv("SOL_WALLET_ADDRESS", "Eib747b9P9KP8gAi53jcA9sMWoLY5S9Ryjek9iETMDQT")
+YOUR_WALLET = "Eib747b9P9KP8gAi53jcA9sMWoLY5S9Ryjek9iETMDQT"
 EXPECTED_AMOUNT = 0.01
 MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB max
 
@@ -78,11 +81,13 @@ async def scheduled_tweet_generation():
             print(f"Generated tweet: {tweet}",flush=True)
 
             post_tweet_v2(tweet)
-        except Exception as e:
-            print(f"Tweet generation error: {e}", flush=True)
+            print(f"Tweet posted successfully!",flush=True)
 
-        print("Waiting for 3 hours...")
-        await asyncio.sleep(10800)  # 3 hours in seconds
+        except Exception as e:
+            print(f"Tweet scheduler error: {e}",flush=True)
+
+        print("Waiting for 3 hours...",flush=True)
+        await asyncio.sleep(1800)  # 30 minutes
 
 async def load_signatures():
     """Load paid signatures from Supabase."""
@@ -103,6 +108,7 @@ async def save_signature(signature: str):
 
 
 app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # Load previous signatures from Supabase when the app starts
 @app.on_event("startup")
@@ -146,9 +152,9 @@ async def list_files():
     import subprocess
     from pathlib import Path
 
-    rclone_dir = Path(".") / "rclone-v1.73.1-linux-amd64"
+    rclone_dir = Path("/tmp")
     result = subprocess.run(
-        ["./rclone", "lsjson", f"storjy:{BUCKET_NAME}"],
+        ["rclone", "lsjson", "storjy:firstbucket"],
         cwd=rclone_dir,
         capture_output=True,
         text=True
@@ -191,12 +197,12 @@ async def download_file(filename: str):
     if safe_name != filename or ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    rclone_dir = Path(".") / "rclone-v1.73.1-linux-amd64"
+    rclone_dir = Path("/tmp")
     temp_dir = tempfile.mkdtemp()
     temp_path = Path(temp_dir) / safe_name
 
     result = subprocess.run(
-        ["./rclone", "copy", f"storjy:{BUCKET_NAME}/{safe_name}", temp_dir],
+        ["rclone", "copy", f"storjy:firstbucket/{safe_name}", temp_dir],
         cwd=rclone_dir,
         capture_output=True,
         text=True

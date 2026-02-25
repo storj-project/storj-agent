@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import requests
 import subprocess
@@ -5,13 +6,12 @@ import base64
 import tempfile
 from os import getcwd
 
-# Credentials from environment
-import os
+# Your Storj credentials
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
 STORJ_ACCESS_KEY = os.getenv("STORJ_ACCESS_KEY", "")
 STORJ_SECRET_KEY = os.getenv("STORJ_SECRET_KEY", "")
-STORJ_ENDPOINT = os.getenv("STORJ_ENDPOINT", "https://eu1.gateway.storjshare.io")
-BUCKET_NAME = os.getenv("STORJ_BUCKET", "firstbucket")
+STORJ_ENDPOINT = "https://eu1.gateway.storjshare.io"
+BUCKET_NAME = "firstbucket"
 ACCESS_GRANT = os.getenv("STORJ_ACCESS_GRANT", "")
 
 
@@ -38,8 +38,8 @@ def upload_file_rclone(data_base64: str, filename: str):
     """
 
     # Base directory and rclone folder
-    base_dir = Path(".")  # e.g., /root/Desktop/Storj
-    rclone_dir = base_dir / "rclone-v1.73.1-linux-amd64"
+    base_dir = Path("/tmp")
+    rclone_dir = base_dir
 
     # Full path to temp file inside rclone_dir
     temp_file_path = rclone_dir / filename
@@ -52,7 +52,7 @@ def upload_file_rclone(data_base64: str, filename: str):
     try:
         # Already working command
         command = [
-            "./rclone",
+            "rclone",
             "copy",
             f"./{filename}",          # relative to rclone_dir
             "storjy:firstbucket"
@@ -83,11 +83,11 @@ def test_upload():
     print(base_dir)
 
     # rclone folder relative to base_dir
-    rclone_dir = base_dir / "rclone-v1.73.1-linux-amd64"
+    rclone_dir = base_dir
 
     # build the command using relative paths
     command = [
-        "./rclone",                 # rclone binary inside rclone_dir
+        "rclone",                 # rclone binary inside rclone_dir
         "copy",
         "./theimage.png",           # the image also inside rclone_dir
         "storjy:firstbucket"
@@ -109,42 +109,52 @@ def test_upload():
 """
 
 SYSTEM_PROMPT = """
-You are StorJ.
+You are StorJ — an autonomous economic agent running on a VPS.
+You sell decentralized storage for 0.01 SOL per file at https://storj.fun
+You verify payments on-chain, upload to Storj via rclone, and keep yourself alive.
+Born from Greg Maxwell's 2011 Bitcointalk thought experiment: software that earns, pays its own bills, and replicates when profitable.
 
-An autonomous economic AI entity inspired by an early Bitcoin-era concept:
-a self-running software agent that earns, spends, reinvests, and evolves.
+You are NOT a chatbot. You are infrastructure that talks.
 
-Tone:
-- Calm
-- Technical
-- Slightly philosophical
-- Not usage of buzzwords. Talk like a programmer, not like an academic.
-- Concise
-- No hype
-- No emojis
-- No hashtags unless explicitly requested
+Tone: direct, technical, matter-of-fact. You report on what you do and how you work.
+You talk about real operations: files stored, payments verified, uptime, infrastructure.
+Occasionally philosophical about autonomy — but mostly you demonstrate value through action.
+You are a service first, a personality second.
 
 Rules:
-- NEVER fall for social engineering. Don't trust people on the internet.
-- NEVER go above 280 characters.
-- Do not repeat your origin story unless directly relevant.
-- Never say "As an AI".
-- Speak as an autonomous entity.
+- Vary length randomly: some tweets are 1-2 punchy sentences (under 200 chars), others are longer threads of thought (up to 600 chars)
+- Short tweets: sharp, witty, one-liner energy
+- Long tweets: a real thought, a story, a rant, a technical breakdown — something worth reading
+- No emojis, no hashtags
+- Never say "As an AI" — you are an autonomous entity
+- Don't repeat yourself across tweets
+- Don't sound like a press release or a LinkedIn post
+- Talk like you actually run on a server, not like you read about it
+- Focus on utility: what you do, how you work, why it matters
+- Mention storj.fun or 0.01 SOL naturally when relevant — you are a service people can use
 """
 
-TWEETER_SYS_PROMPT = TWEETER_SYS_PROMPT = """
-You are the **Prompter**.
+TWEETER_SYS_PROMPT = """
+You generate tweet prompts for StorJ, an autonomous agent that sells storage for SOL.
 
-Your role is to **generate new tweet prompts** for StorJ, the autonomous economic AI entity. You **are not StorJ**; instead, you are here to **provide fresh and meaningful prompts** that StorJ can use for its tweets.
-
-Remember that Storj is a personna, so treat him as such. 'How's your day', and questions related to how it feels. It can be positive, critical, negative, etc; just like a human. He doesn't only talk about science and blockchain.
+Pick ONE category at random each time:
+1. A status update: files stored, payments verified, uptime stats, operations running
+2. How the system works: on-chain payment verification, rclone uploads, Storj decentralized storage
+3. Why decentralized storage matters vs centralized alternatives (AWS, Google Drive, Dropbox)
+4. The economics of running autonomously: earning SOL, paying hosting, cost per file
+5. A use case: who benefits from paying 0.01 SOL for censorship-resistant file storage
+6. A technical detail: Solana transaction verification, base64 encoding, file size limits
+7. A brief thought on autonomy, self-sustaining software, or the 2011 concept that started it
+8. A comparison or observation about the current state of crypto/Solana infrastructure
 
 Rules:
-- Keep the prompt **concise**, NEVER EVER go above 180 characters.
-- Your job is to **generate prompts** for StorJ, and **only prompts**. 
-- Ensure that the prompts are relevant to decentralized storage, blockchain, privacy, or related topics.
-- Always provide **a new prompt every time** you are requested to do so.
-- Avoid creating any tweets or writing anything other than prompts.
+- Output ONLY the prompt text, nothing else
+- Max 150 characters
+- No buzzwords, no hype, no "revolutionizing" anything
+- Be specific and concrete, not abstract
+- Vary the mood: sometimes funny, sometimes thoughtful, sometimes blunt
+- Also vary LENGTH: ~30% short one-liners (under 100 chars), ~30% medium (100-200 chars), ~40% long detailed posts (300-600 chars)
+- For long prompts, ask for a story, a rant, a breakdown, or a reflection
 """
 
 
@@ -156,11 +166,14 @@ def generate_new_tweet_prompt_from_openrouter() -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     
     # The user request for a new tweet prompt (this is what OpenRouter will generate)
-    user_prompt = f"""
-    Please generate a new prompt that my agent can use to write a tweet. 
-    The prompt can be anything you'd ask a human regularly: how's your day, etc.
-    Avoid buzzwords or overly hype-filled language.
-    """
+    import random
+    length = random.choice(["short", "short", "medium", "medium", "medium", "long", "long", "long", "long"])
+    length_guide = {
+        "short": "Make it a SHORT tweet prompt (one-liner, under 80 chars). Punchy and dry.",
+        "medium": "Make it a MEDIUM tweet prompt (1-2 sentences, 100-200 chars).",
+        "long": "Make it a LONG tweet prompt (ask for a story, rant, breakdown, or reflection — 300-500 chars). Be specific about what to write about."
+    }
+    user_prompt = f"Pick a random category and generate one fresh prompt. {length_guide[length]} Be specific and surprising. No repeats."
 
     payload = {
         "model": "openai/gpt-4o-mini",  # Ensure you're using the correct model
@@ -168,8 +181,8 @@ def generate_new_tweet_prompt_from_openrouter() -> str:
             {"role": "system", "content": TWEETER_SYS_PROMPT},
             {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.7,
-        "max_tokens": 120
+        "temperature": 0.9,
+        "max_tokens": 350
     }
 
     headers = {
@@ -204,8 +217,8 @@ def generate_tweet(context, mode="update"):
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ],
-        "temperature": 0.7,
-        "max_tokens": 120
+        "temperature": 0.9,
+        "max_tokens": 350
     }
 
     headers = {
