@@ -124,6 +124,12 @@ class PayAndUploadRequest(BaseModel):
     filename: str
     data_base64: str
 
+class PayAndAIRequest(BaseModel):
+    signature: str
+    model: str
+    prompt: str
+    sys_prompt: str
+
 
 # ----- Endpoints -----
 
@@ -271,6 +277,37 @@ async def pay_and_upload(req: PayAndUploadRequest):
         }
     else:
         raise HTTPException(status_code=500, detail=f"Upload failed: {upload_msg}")
+
+@app.post("/pay_and_AIreq")
+async def pay_and_request(req: PayAndAIRequest):
+    global paid_signatures
+
+    await load_signatures()
+
+    # Prevent replay attacks
+    if req.signature in paid_signatures:
+        raise HTTPException(status_code=400, detail="Signature already used")
+
+    result = blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT)
+    # verify_sol_payment returns (bool, str) tuple
+    if isinstance(result, tuple):
+        valid, msg = result
+    else:
+        valid = result
+        msg = ""
+
+    await save_signatures(req.signature)
+
+    output = query_openrouter(
+    sys_prompt=req.sys_prompt,
+    user_prompt=req.prompt,
+    model=req.model
+)
+
+    if output!=None:
+        return {"status": "success", "message": f"The {req.model} said: {output}"}
+    else:
+        raise HTTPException(status_code=500, detail=f"AI Request failed")
 
 if __name__ == "__main__":
     print("Starting Storj...",flush=True)
