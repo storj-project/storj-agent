@@ -309,6 +309,80 @@ async def pay_and_request(req: PayAndAIRequest):
     else:
         raise HTTPException(status_code=500, detail=f"AI Request failed")
 
+# ----- Single Endpoint -----
+@app.post("/pay_node_gettxnhist")
+async def pay_and_txnhist(req: PayNodeReq):
+    global paid_signatures
+    await load_signatures()
+
+    # Prevent replay attacks
+    if req.signature in paid_signatures:
+        raise HTTPException(status_code=400, detail="Signature already used")
+
+    # Step 1: Verify SOL payment
+    if not blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT):
+        raise HTTPException(status_code=400, detail="Payment not valid")
+
+    # Mark signature as used
+    await save_signatures(req.signature)
+
+    output = blockchain.api_get_txn_history(
+    address=req.wallet
+)
+    
+    if output!=None:
+        return {"status": "success", "message": output}
+    else:
+        raise HTTPException(status_code=500, detail=f"AI Request failed")
+    
+@app.post("/pay_node_getbal")
+async def pay_and_getbal(req: PayNodeReq):
+    global paid_signatures
+    await load_signatures()
+
+    # Prevent replay attacks
+    if req.signature in paid_signatures:
+        raise HTTPException(status_code=400, detail="Signature already used")
+
+    # Step 1: Verify SOL payment
+    if not blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT):
+        raise HTTPException(status_code=400, detail="Payment not valid")
+
+    # Mark signature as used
+    await save_signatures(req.signature)
+
+    output = blockchain.api_get_bal(
+    address=req.wallet
+)
+    
+    if output!=None:
+        return {"status": "success", "message": output}
+    else:
+        raise HTTPException(status_code=500, detail=f"AI Request failed")
+    
+@app.post("/pay_node_apiwalletgen")
+async def pay_and_wallgen(req: PayNodeReq):
+    global paid_signatures
+    await load_signatures()
+
+    # Prevent replay attacks
+    if req.signature in paid_signatures:
+        raise HTTPException(status_code=400, detail="Signature already used")
+
+    # Step 1: Verify SOL payment
+    if not blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT):
+        raise HTTPException(status_code=400, detail="Payment not valid")
+
+    # Mark signature as used
+    await save_signatures(req.signature)
+
+    output = blockchain.api_wallet_gen()
+    
+    if output!=None:
+        return {"status": "success", "message": output}
+    else:
+        raise HTTPException(status_code=500, detail=f"AI Request failed")
+
 if __name__ == "__main__":
     print("Starting Storj...",flush=True)
 
