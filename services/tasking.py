@@ -199,6 +199,38 @@ def generate_new_tweet_prompt_from_openrouter() -> str:
     
     return tweet_prompt
 
+def query_openrouter(sys_prompt: str, user_prompt: str, model: str) -> str:
+    """
+    Sends a request to OpenRouter with a system prompt, user prompt, and model.
+    Returns the generated response content as a string.
+    """
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 500
+    }
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    # Basic error handling
+    if response.status_code != 200:
+        raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
+
+    data = response.json()
+
+    return data["choices"][0]["message"]["content"].strip()
+
 def generate_tweet(context, mode="update"):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
