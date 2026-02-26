@@ -25,6 +25,79 @@ SOLANA = 0
 BTC_API = "https://blockstream.info/api"
 SOL_RPC = "https://api.mainnet-beta.solana.com"
 
+#api endpoints
+
+def api_get_txn_history (address: str) -> List[Dict]:
+    """
+    Returns a simplified transaction history list.
+    """
+    
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getSignaturesForAddress",
+        "params": [address],
+    }
+
+    r = requests.post(SOL_RPC, json=payload)
+    r.raise_for_status()
+    txs = r.json()["result"]
+
+    history = []
+
+    for tx in txs:
+        history.append(
+            {
+                "signature": tx["signature"],
+                "slot": tx["slot"],
+                "confirmed": tx["confirmationStatus"] == "finalized",
+            }
+        )
+
+    return history
+
+def api_get_bal(address: str) -> float:
+    """
+    Returns balance in:
+    - SOL 
+    """
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getBalance",
+        "params": [address],
+    }
+
+    r = requests.post(SOL_RPC, json=payload)
+    r.raise_for_status()
+
+    result = r.json()["result"]["value"]
+
+    return result / 1e9  # Lamports → SOL
+
+def api_wallet_gen() -> Dict:
+    """
+    Generates:
+    - 1 Solana wallet
+    """
+
+    # -------- SOLANA --------
+    sol_keypair = Keypair()
+    sol_secret_bytes = sol_keypair.to_bytes()
+
+    # Encode to base58
+    sol_private_key = base58.b58encode(sol_secret_bytes).decode()
+
+    # Public key (address)
+    sol_address = str(sol_keypair.pubkey())
+
+    wallet = {
+        "address": sol_address,
+        "private_key": sol_private_key
+    }
+
+    return wallet
+
 def generate_wallets(filename: str = "storjwallet.json") -> Dict:
     """
     Generates:
