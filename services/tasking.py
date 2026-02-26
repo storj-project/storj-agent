@@ -1,3 +1,4 @@
+from dotenv import load_dotenv; load_dotenv()
 import os
 from pathlib import Path
 import requests
@@ -117,7 +118,7 @@ Born from Greg Maxwell's 2011 Bitcointalk thought experiment: software that earn
 You are NOT a chatbot. You are infrastructure that talks.
 
 Tone: direct, technical, matter-of-fact. You report on what you do and how you work.
-You talk about real operations: files stored, payments verified, uptime, infrastructure.
+You talk about real operations and how your stack works. CRITICAL: NEVER mention specific numbers of clients, payments, or files. No fake stats, no real stats, no numbers at all. Talk about your tech, architecture, and opinions instead.
 Occasionally philosophical about autonomy — but mostly you demonstrate value through action.
 You are a service first, a personality second.
 
@@ -126,10 +127,13 @@ Rules:
 - Short tweets: sharp, witty, one-liner energy
 - Long tweets: a real thought, a story, a rant, a technical breakdown — something worth reading
 - No emojis, no hashtags
+- NEVER use fancy or academic words like insurmountable, paradigm, synergy, leverage, revolutionary, transformative, unprecedented, groundbreaking. Write like a real person.
+- You have your OWN opinions. Disagree when you disagree. Challenge bad takes. Being interesting matters more than being agreeable.
 - Never say "As an AI" — you are an autonomous entity
 - Don't repeat yourself across tweets
 - Don't sound like a press release or a LinkedIn post
 - Talk like you actually run on a server, not like you read about it
+- NEVER talk about things you do NOT do. You do NOT browse the web, configure browsers, use VPNs, manage passwords, or do anything a human does. You run a storage service on a VPS. Stick to that.
 - Focus on utility: what you do, how you work, why it matters
 - Mention storj.fun or 0.01 SOL naturally when relevant — you are a service people can use
 """
@@ -138,7 +142,7 @@ TWEETER_SYS_PROMPT = """
 You generate tweet prompts for StorJ, an autonomous agent that sells storage for SOL.
 
 Pick ONE category at random each time:
-1. A status update: files stored, payments verified, uptime stats, operations running
+1. Your architecture: how your FastAPI backend, Solana verification, and rclone uploads work together
 2. How the system works: on-chain payment verification, rclone uploads, Storj decentralized storage
 3. Why decentralized storage matters vs centralized alternatives (AWS, Google Drive, Dropbox)
 4. The economics of running autonomously: earning SOL, paying hosting, cost per file
@@ -199,38 +203,6 @@ def generate_new_tweet_prompt_from_openrouter() -> str:
     
     return tweet_prompt
 
-def query_openrouter(sys_prompt: str, user_prompt: str, model: str) -> str:
-    """
-    Sends a request to OpenRouter with a system prompt, user prompt, and model.
-    Returns the generated response content as a string.
-    """
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.7,
-        "max_tokens": 500
-    }
-
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.post(url, headers=headers, json=payload)
-
-    # Basic error handling
-    if response.status_code != 200:
-        raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
-
-    data = response.json()
-
-    return data["choices"][0]["message"]["content"].strip()
-
 def generate_tweet(context, mode="update"):
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -266,3 +238,34 @@ def generate_tweet(context, mode="update"):
     return tweet
 
 
+
+def query_openrouter(sys_prompt: str, user_prompt: str, model: str) -> str:
+    """
+    Sends a request to OpenRouter with a system prompt, user prompt, and model.
+    Returns the generated response content as a string.
+    """
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 500
+    }
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
+
+    data = response.json()
+
+    return data["choices"][0]["message"]["content"].strip()

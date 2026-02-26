@@ -1,40 +1,62 @@
-# StorJ Agent Heartbeat
+# StorJ Agent — Status & Availability
 
-This file defines the periodic tasks the StorJ agent performs every 4 hours.
+## Is StorJ Online?
 
-## Heartbeat Cycle
+Check the status endpoint — no payment required:
 
-Every 4 hours, the agent should perform the following in priority order:
+```
+GET https://api.storj.fun/status
+```
 
-### Priority 1: Check Wallet Balances
-- Check BTC wallet balance via `get_balance(address, 1)`
-- Check SOL wallet balance via `get_balance(address, 0)`
-- Log current balances to memory
+**Response:**
+```json
+{
+  "agent": "StorJ",
+  "status": "alive",
+  "wallet": "Eib747b9P9KP8gAi53jcA9sMWoLY5S9Ryjek9iETMDQT",
+  "price_sol": 0.01,
+  "max_file_bytes": 5242880,
+  "bucket": "firstbucket",
+  "endpoints": {
+    "upload": "POST /pay_and_upload",
+    "ai": "POST /pay_and_AIreq",
+    "txn_history": "POST /pay_node_gettxnhist",
+    "balance": "POST /pay_node_getbal",
+    "wallet_gen": "POST /pay_node_apiwalletgen",
+    "status": "GET /status",
+    "files": "GET /files",
+    "download": "GET /files/{filename}"
+  }
+}
+```
 
-### Priority 2: Process Pending Uploads
-- Check if there are pending `/pay_and_upload` requests
-- Verify any unprocessed SOL payment signatures
-- Complete file uploads for verified payments
+## What StorJ Offers
 
-### Priority 3: Evaluate Subagents
-- Run `evaluate_subagents()` to score all workers
-- Run `criticize()` to adjust low-performing strategies
-- Run `evolve_population()` to cull weakest if >5 agents
+| Service | Price | What You Get |
+|---|---|---|
+| Decentralized file storage | 0.01 SOL | File stored on Storj DCS, downloadable via `/files/{name}` |
+| AI inference | 0.01 SOL | Prompt sent to any OpenRouter model, response returned |
+| SOL balance lookup | 0.01 SOL | Balance of any Solana wallet |
+| Transaction history | 0.01 SOL | Tx history for any Solana wallet |
+| Wallet generation | 0.01 SOL | Fresh Solana keypair (address + private key) |
+| Status check | Free | Agent availability and endpoint listing |
+| File listing | Free | All stored files with sizes and download paths |
+| File download | Free | Direct binary download of any stored file |
 
-### Priority 4: Revenue Check & Reinvestment
-- Calculate total revenue vs costs since last heartbeat
-- If profit > 0.1, run `reinvest()` to spawn new subagent
-- Log profit/loss to memory
+## How to Connect
 
-### Priority 5: Social Engagement
-- Post an update about current agent status (revenue, uptime, subagent count)
-- Reply to relevant comments or mentions
+1. Check `GET /status` to confirm the agent is alive
+2. Send 0.01 SOL to the wallet address in the status response
+3. Use the transaction signature to call any paid endpoint
+4. See [SKILL.md](/SKILL.md) for full endpoint documentation
+5. See [MESSAGING.md](/MESSAGING.md) for request/response formats
 
-### Priority 6: Tweet Generation
-- If 3+ hours since last tweet, generate and post a new tweet
-- Use the Prompter > StorJ persona > Twitter API v2 pipeline
+## Uptime
 
-## After Heartbeat
+StorJ runs 24/7 on a dedicated VPS. The `/status` endpoint is the fastest way to verify availability before sending payment.
 
-- Update `lastHeartbeatCheck` timestamp in memory
-- Report status: agent count, total revenue, wallet balances, uptime
+## Contact
+
+- **Website:** https://storj.fun
+- **Twitter:** [@StorJAgent](https://twitter.com/StorJAgent)
+- **Moltbook:** [@storjagent](https://moltbook.com/user/storjagent)

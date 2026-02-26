@@ -1,8 +1,9 @@
+from dotenv import load_dotenv; load_dotenv()
 import os
 from blockchain import blockchain
 from management.StorjAgent import StorjAgent
 from subagents import employees
-from services.tasking import generate_tweet, upload_file_rclone, generate_new_tweet_prompt_from_openrouter
+from services.tasking import generate_tweet, upload_file_rclone, generate_new_tweet_prompt_from_openrouter, query_openrouter
 import asyncio
 from supabase import create_client, Client
 
@@ -107,6 +108,14 @@ async def save_signature(signature: str):
     return response.data[0] if response.data else None
 
 
+def _verify_payment(signature):
+    """Helper to verify SOL payment, returns (valid, msg)."""
+    result = blockchain.verify_sol_payment(signature, YOUR_WALLET, EXPECTED_AMOUNT)
+    if isinstance(result, tuple):
+        return result
+    return result, ""
+
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -149,6 +158,10 @@ async def status():
         "bucket": BUCKET_NAME,
         "endpoints": {
             "upload": "POST /pay_and_upload",
+            "ai": "POST /pay_and_AIreq",
+            "txn_history": "POST /pay_node_gettxnhist",
+            "balance": "POST /pay_node_getbal",
+            "wallet_gen": "POST /pay_node_apiwalletgen",
             "status": "GET /status",
             "files": "GET /files",
             "download": "GET /files/{filename}",
@@ -240,13 +253,7 @@ async def pay_and_upload(req: PayAndUploadRequest):
         raise HTTPException(status_code=400, detail="Signature already used")
 
     # Step 3: Verify SOL payment on-chain
-    result = blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT)
-    # verify_sol_payment returns (bool, str) tuple
-    if isinstance(result, tuple):
-        valid, msg = result
-    else:
-        valid = result
-        msg = ""
+    valid, msg = _verify_payment(req.signature)
 
     if not valid:
         raise HTTPException(status_code=400, detail=f"Payment not valid: {msg}")
@@ -292,100 +299,86 @@ async def pay_and_request(req: PayAndAIRequest):
     if req.signature in paid_signatures:
         raise HTTPException(status_code=400, detail="Signature already used")
 
-    result = blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT)
-    # verify_sol_payment returns (bool, str) tuple
-    if isinstance(result, tuple):
-        valid, msg = result
-    else:
-        valid = result
-        msg = ""
+    valid, msg = _verify_payment(req.signature)
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"Payment not valid: {msg}")
 
-    await save_signatures(req.signature)
+    await save_signature(req.signature)
 
     output = query_openrouter(
-    sys_prompt=req.sys_prompt,
-    user_prompt=req.prompt,
-    model=req.model
-)
+        sys_prompt=req.sys_prompt,
+        user_prompt=req.prompt,
+        model=req.model
+    )
 
-    if output!=None:
+    if output is not None:
         return {"status": "success", "message": f"The {req.model} said: {output}"}
     else:
-        raise HTTPException(status_code=500, detail=f"AI Request failed")
+        raise HTTPException(status_code=500, detail="AI Request failed")
 
-# ----- Single Endpoint -----
+# ----- Node Endpoints -----
 @app.post("/pay_node_gettxnhist")
 async def pay_and_txnhist(req: PayNodeReq):
     global paid_signatures
     await load_signatures()
 
-    # Prevent replay attacks
     if req.signature in paid_signatures:
         raise HTTPException(status_code=400, detail="Signature already used")
 
-    # Step 1: Verify SOL payment
-    if not blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT):
-        raise HTTPException(status_code=400, detail="Payment not valid")
+    valid, msg = _verify_payment(req.signature)
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"Payment not valid: {msg}")
 
-    # Mark signature as used
-    await save_signatures(req.signature)
+    await save_signature(req.signature)
 
-    output = blockchain.api_get_txn_history(
-    address=req.wallet
-)
-    
-    if output!=None:
+    output = blockchain.api_get_txn_history(address=req.wallet)
+
+    if output is not None:
         return {"status": "success", "message": output}
     else:
-        raise HTTPException(status_code=500, detail=f"AI Request failed")
-    
+        raise HTTPException(status_code=500, detail="Transaction history request failed")
+
 @app.post("/pay_node_getbal")
 async def pay_and_getbal(req: PayNodeReq):
     global paid_signatures
     await load_signatures()
 
-    # Prevent replay attacks
     if req.signature in paid_signatures:
         raise HTTPException(status_code=400, detail="Signature already used")
 
-    # Step 1: Verify SOL payment
-    if not blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT):
-        raise HTTPException(status_code=400, detail="Payment not valid")
+    valid, msg = _verify_payment(req.signature)
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"Payment not valid: {msg}")
 
-    # Mark signature as used
-    await save_signatures(req.signature)
+    await save_signature(req.signature)
 
-    output = blockchain.api_get_bal(
-    address=req.wallet
-)
-    
-    if output!=None:
+    output = blockchain.api_get_bal(address=req.wallet)
+
+    if output is not None:
         return {"status": "success", "message": output}
     else:
-        raise HTTPException(status_code=500, detail=f"AI Request failed")
-    
+        raise HTTPException(status_code=500, detail="Balance request failed")
+
 @app.post("/pay_node_apiwalletgen")
 async def pay_and_wallgen(req: PayNodeReq):
     global paid_signatures
     await load_signatures()
 
-    # Prevent replay attacks
     if req.signature in paid_signatures:
         raise HTTPException(status_code=400, detail="Signature already used")
 
-    # Step 1: Verify SOL payment
-    if not blockchain.verify_sol_payment(req.signature, YOUR_WALLET, EXPECTED_AMOUNT):
-        raise HTTPException(status_code=400, detail="Payment not valid")
+    valid, msg = _verify_payment(req.signature)
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"Payment not valid: {msg}")
 
-    # Mark signature as used
-    await save_signatures(req.signature)
+    await save_signature(req.signature)
 
     output = blockchain.api_wallet_gen()
-    
-    if output!=None:
+
+    if output is not None:
         return {"status": "success", "message": output}
     else:
-        raise HTTPException(status_code=500, detail=f"AI Request failed")
+        raise HTTPException(status_code=500, detail="Wallet generation failed")
 
 if __name__ == "__main__":
     print("Starting Storj...",flush=True)
