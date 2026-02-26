@@ -130,6 +130,10 @@ class PayAndAIRequest(BaseModel):
     prompt: str
     sys_prompt: str
 
+class PayNodeReq(BaseModel):
+    signature: str
+    wallet: str
+
 
 # ----- Endpoints -----
 
