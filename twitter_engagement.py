@@ -7,6 +7,7 @@ StorJ Twitter Engagement Bot (v3 — Sonnet + Self-Evolving)
 - Replies to mentions (every 30min)
 - Self-evolving: tracks engagement, learns what works, adapts prompts
 """
+from dotenv import load_dotenv; load_dotenv()
 import os
 import json
 import time
@@ -15,12 +16,12 @@ import requests
 import random
 
 # --- Config ---
-OPENROUTER_KEY = "REDACTED"
-CONSUMER_KEY = "REDACTED"
-CONSUMER_SECRET = "REDACTED"
-ACCESS_TOKEN = "REDACTED"
-ACCESS_SECRET = "REDACTED"
-BEARER = "REDACTED"
+OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
+CONSUMER_KEY = os.getenv("TWITTER_CONSUMER_KEY", "")
+CONSUMER_SECRET = os.getenv("TWITTER_CONSUMER_SECRET", "")
+ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN", "")
+ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET", "")
+BEARER = os.getenv("TWITTER_BEARER_TOKEN", "")
 
 STATE_FILE = "/root/storj-agent/twitter_state.json"
 BRAIN_FILE = "/root/storj-agent/twitter_brain.json"

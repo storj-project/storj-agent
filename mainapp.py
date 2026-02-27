@@ -17,7 +17,7 @@ CONSUMER_SECRET = os.getenv("TWITTER_CONSUMER_SECRET", "")
 ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN", "")
 ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET", "")
 BEARER = os.getenv("TWITTER_BEARER_TOKEN", "")
-V2_KEY = "REDACTED"
+V2_KEY = os.getenv("V2_KEY", "")
 
 # Supabase Credentials
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")

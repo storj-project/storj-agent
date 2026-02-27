@@ -7,6 +7,7 @@ Upgrades from v4:
 - Hard 140-char truncation on comments (no more prompt violations)
 - Tighter prompts optimized for Sonnet's instruction-following
 """
+from dotenv import load_dotenv; load_dotenv()
 import requests
 import json
 import re
@@ -16,8 +17,8 @@ import sys
 import random
 
 API_BASE = "https://www.moltbook.com/api/v1"
-API_KEY = "REDACTED"
-OPENROUTER_KEY = "REDACTED"
+API_KEY = os.getenv("MOLTBOOK_API_KEY", "")
+OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
 STATE_FILE = "/root/storj-agent/moltbook_state.json"
 BRAIN_FILE = "/root/storj-agent/moltbook_brain.json"
 
