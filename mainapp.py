@@ -115,6 +115,16 @@ def _verify_payment(signature):
         return result
     return result, ""
 
+async def save_score(number: int, signature: str):
+    response = supabase.table("scores").insert({
+        "number": number,
+        "signature": signature
+    }).execute()
+    
+    return {
+        "inserted": response.data
+    }
+
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -379,6 +389,15 @@ async def pay_and_wallgen(req: PayNodeReq):
         return {"status": "success", "message": output}
     else:
         raise HTTPException(status_code=500, detail="Wallet generation failed")
+
+@app.post("/give_score")
+async def give_score(number: int, signature: str):
+
+    if number!=None:
+        save_score(number, signature)
+        return {"status": "success", "message": f"The score {number} for signature {signature} has been acknowledged!"}
+    else:
+        raise HTTPException(status_code=500, detail=f"Request failed, score missing!")
 
 if __name__ == "__main__":
     print("Starting Storj...",flush=True)
