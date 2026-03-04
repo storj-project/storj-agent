@@ -391,6 +391,17 @@ async def pay_and_wallgen(req: PayNodeReq):
     else:
         raise HTTPException(status_code=500, detail="Wallet generation failed")
 
+@app.post("/upload_for_edit")
+async def upload_video(file: UploadFile = File(...)):
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_input:
+        shutil.copyfileobj(file.file, temp_input)
+        temp_input_path = temp_input.name
+
+    main(temp_input_path)   
+
+    return {"status": "processed"}
+
 @app.post("/give_score")
 async def give_score(number: int, signature: str):
 
