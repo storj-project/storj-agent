@@ -3,7 +3,7 @@ import os
 from blockchain import blockchain
 from management.StorjAgent import StorjAgent
 from subagents import employees
-from services.tasking import generate_tweet, upload_file_rclone, generate_new_tweet_prompt_from_openrouter, query_openrouter
+from services.tasking import generate_tweet, upload_file_rclone, generate_new_tweet_prompt_from_openrouter, query_openrouter, video_edition
 import asyncio
 from supabase import create_client, Client
 from survival import pay_hosting
@@ -393,14 +393,29 @@ async def pay_and_wallgen(req: PayNodeReq):
 
 @app.post("/upload_for_edit")
 async def upload_video(file: UploadFile = File(...)):
+    global paid_signatures
+    await load_signatures()
 
+    if req.signature in paid_signatures:
+        raise HTTPException(status_code=400, detail="Signature already used")
+
+    valid, msg = _verify_payment(req.signature)
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"Payment not valid: {msg}")
+
+    await save_signature(req.signature)
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_input:
         shutil.copyfileobj(file.file, temp_input)
         temp_input_path = temp_input.name
 
-    main(temp_input_path)   
+    video_edition(temp_input_path)   
 
-    return {"status": "processed"}
+    return {"status":"processed":},FileResponse(
+        path=output_path,
+        media_type="video/mp4",
+        filename="edited_video.mp4"
+    )
 
 @app.post("/give_score")
 async def give_score(number: int, signature: str):
