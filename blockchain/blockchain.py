@@ -27,6 +27,84 @@ SOL_RPC = "https://api.mainnet-beta.solana.com"
 
 #api endpoints
 
+# -----------------------------
+# Create ChangeNOW Order
+# -----------------------------
+
+CHANGENOW_API_KEY=os.getenv("CHANGENOW_API_KEY","")
+
+def create_exchange(amount_sol: float, btc_address: str):
+    url = "https://api.changenow.io/v2/exchange"
+
+    payload = {
+        "fromCurrency": "sol",
+        "toCurrency": "btc",
+        "fromAmount": str(amount_sol),
+        "address": btc_address,
+        "flow": "standard"
+    }
+
+    headers = {
+        "x-changenow-api-key": CHANGENOW_API_KEY,
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(url, json=payload, headers=headers).json()
+
+    return response["payinAddress"], response["id"]
+
+
+# -----------------------------
+# Send SOL to ChangeNOW
+# -----------------------------
+
+def send_sol(private_key: str, to_address: str, amount_sol: float):
+    client = Client(SOL_RPC)
+
+    keypair = Keypair.from_bytes(base58.b58decode(private_key))
+    sender = keypair.pubkey()
+    receiver = Pubkey.from_string(to_address)
+
+    lamports = int(amount_sol * 10**9)
+
+    blockhash = client.get_latest_blockhash()["result"]["value"]["blockhash"]
+
+    txn = VersionedTransaction(recent_blockhash=blockhash)
+    txn.add(
+        transfer(
+            TransferParams(
+                from_pubkey=sender,
+                to_pubkey=receiver,
+                lamports=lamports
+            )
+        )
+    )
+
+    response = client.send_transaction(txn, keypair)
+
+    return response["result"]
+
+
+# -----------------------------
+# Full Payment Function
+# -----------------------------
+
+def pay_namecheap_with_sol(sol_private_key: str, amount_sol: float, btc_invoice_address: str):
+    print("Creating SOL → BTC exchange...")
+    payin_address, order_id = create_exchange(amount_sol, btc_invoice_address)
+
+    print("Send SOL to:", payin_address)
+
+    tx_sig = send_sol(sol_private_key, payin_address, amount_sol)
+
+    print("SOL sent. TX:", tx_sig)
+    print("Waiting for ChangeNOW to convert and forward BTC to Namecheap...")
+
+    return {
+        "sol_tx": tx_sig,
+        "exchange_order_id": order_id
+    }
+
 def api_get_txn_history (address: str) -> List[Dict]:
     """
     Returns a simplified transaction history list.
