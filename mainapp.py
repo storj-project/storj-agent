@@ -411,11 +411,15 @@ async def upload_video(file: UploadFile = File(...)):
 
     video_edition(temp_input_path)   
 
-    return {"status":"processed":},FileResponse(
-        path=output_path,
-        media_type="video/mp4",
-        filename="edited_video.mp4"
-    )
+    try:
+        return FileResponse(
+            path=output_path,
+            media_type="video/mp4",
+            filename="edited_video.mp4"
+        )
+    except:
+        raise HTTPException(status_code=400, detail=f"File not valid: {msg}")
+    
 @app.get("/clone/ct/{username}")
 def clone_user(username: str):
     global paid_signatures
