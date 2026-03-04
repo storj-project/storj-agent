@@ -6,7 +6,8 @@ import subprocess
 import base64
 import tempfile
 from os import getcwd
-from video_handling import main
+from video_handling import edit_vid
+from cloning_ct import generate_persona_system_prompt
 
 # Your Storj credentials
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
