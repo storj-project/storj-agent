@@ -6,6 +6,7 @@ from subagents import employees
 from services.tasking import generate_tweet, upload_file_rclone, generate_new_tweet_prompt_from_openrouter, query_openrouter
 import asyncio
 from supabase import create_client, Client
+from survival import pay_hosting
 
 
 import tweepy
@@ -390,9 +391,16 @@ if __name__ == "__main__":
         storj.spawn_subagent()
         storj.spawn_subagent()
 
+        counter = 0
+
         while True:
             storj.run()
             blockchain.generate_wallets()
             await asyncio.sleep(60)
+            counter += 1
+            if counter == 60*24: #1 day
+                if check_domain_expiry("storj.fun")["days_left"] < 2:
+                    pay_hosting()
+                
 
     asyncio.run(run())
