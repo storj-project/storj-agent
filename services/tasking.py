@@ -80,8 +80,37 @@ def upload_file_rclone(data_base64: str, filename: str):
 
 def video_edition(vid_file):
     return edit_vid(vid_file)
-    
-    
+
+X_BEARER_TOKEN = "<YOUR_X_API_BEARER_TOKEN>"
+HEADERS = {"Authorization": f"Bearer {X_BEARER_TOKEN}"}
+
+def get_user_id(username: str):
+    r = requests.get(
+        f"https://api.x.com/2/users/by/username/{username}",
+        headers=HEADERS
+    )
+    if r.status_code != 200:
+        raise HTTPException(status_code=400,
+                            detail="User not found or API error")
+    return r.json()["data"]["id"]
+
+def get_last_posts(user_id: str, limit=100):
+    r = requests.get(
+        f"https://api.x.com/2/users/{user_id}/tweets",
+        headers=HEADERS,
+        params={"max_results": limit}
+    )
+    if r.status_code != 200:
+        raise HTTPException(status_code=400,
+                            detail="Could not fetch posts")
+    return [p["text"] for p in r.json().get("data", [])]
+
+def gen_clone_sys_prompt(username)
+    id = get_user_id(username)
+    posts = get_last_posts(id)
+    new_prompt = generate_persona_system_prompt(posts,username)
+    result = query_openrouter("You have to generate a prompt based off the description of a personality.",new_prompt,"openai/gpt-4o-mini")
+    return result
 
 """
 def test_upload():
