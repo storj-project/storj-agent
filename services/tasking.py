@@ -6,6 +6,7 @@ import subprocess
 import base64
 import tempfile
 from os import getcwd
+from video_handling import main
 
 # Your Storj credentials
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
@@ -75,6 +76,11 @@ def upload_file_rclone(data_base64: str, filename: str):
         # Delete temporary file after upload
         if temp_file_path.exists():
             os.remove(temp_file_path)
+
+def video_edition(vid_file):
+    return edit_vid(vid_file)
+    
+    
 
 """
 def test_upload():
