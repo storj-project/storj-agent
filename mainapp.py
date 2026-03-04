@@ -3,7 +3,7 @@ import os
 from blockchain import blockchain
 from management.StorjAgent import StorjAgent
 from subagents import employees
-from services.tasking import generate_tweet, upload_file_rclone, generate_new_tweet_prompt_from_openrouter, query_openrouter, video_edition
+from services.tasking import generate_tweet, upload_file_rclone, generate_new_tweet_prompt_from_openrouter, query_openrouter, video_edition, gen_clone_sys_prompt
 import asyncio
 from supabase import create_client, Client
 from survival import pay_hosting
@@ -416,7 +416,22 @@ async def upload_video(file: UploadFile = File(...)):
         media_type="video/mp4",
         filename="edited_video.mp4"
     )
+@app.get("/clone/ct/{username}")
+def clone_user(username: str):
+    global paid_signatures
+    await load_signatures()
 
+    if req.signature in paid_signatures:
+        raise HTTPException(status_code=400, detail="Signature already used")
+
+    valid, msg = _verify_payment(req.signature)
+    if not valid:
+        raise HTTPException(status_code=400, detail=f"Payment not valid: {msg}")
+
+    await save_signature(req.signature)
+    prompt = gen_clone_sys_prompt(username)
+    return {"status": "success","result":prompt}
+    
 @app.post("/give_score")
 async def give_score(number: int, signature: str):
 
