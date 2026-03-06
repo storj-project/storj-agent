@@ -1,84 +1,131 @@
-import random
-import string
+import os
+import requests
+import tweepy
+import boto3
+from urllib.parse import urlparse
 
-# task_id -> {"type": "1", "link": "..."}
-TASK_REGISTRY: dict[str, dict] = {}
-
-
-# ---------------------------
-# Utilities
-# ---------------------------
-
-def gen_32string():
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+from services.sales import TASK_REGISTRY
 
 
-# ---------------------------
-# Work Execution
-# ---------------------------
+# -----------------------------
+# TWITTER CLIENT
+# -----------------------------
 
-def work(task: str, prompt: str):
-    """
-    Performs the task and returns:
-        {"id": taskID, "link": link}
-    or 0 if invalid
-    """
+twitter_client = tweepy.Client(
+    bearer_token=os.getenv("TWITTER_BEARER_TOKEN")
+)
 
-    if task not in ["1", "2", "3", "4"]:
-        print(f"task ID {task} not available")
-        return 0
 
-    taskID = gen_32string()
-    link = None
+def get_tweet_id(tweet_url: str) -> str:
+    return tweet_url.split("/")[-1]
 
-    # ---------------- TASK TYPES ----------------
 
-    if task == "1":
-        # Twitter
-        # Post tweet / reply / marketing content
-        # Use Twitter API
-        # Return the tweet URL
-        link = "TWITTER_LINK_HERE"
+def get_twitter_metrics(tweet_url: str):
 
-    elif task == "2":
-        # OpenRouter aggregator
-        # Send request through your OpenRouter monetized endpoint
-        # Possibly log request usage / referral
-        # Return request tracking URL or request ID page
-        link = "OPENROUTER_LINK_HERE"
+    tweet_id = get_tweet_id(tweet_url)
 
-    elif task == "3":
-        # Alchemy aggregator
-        # Execute blockchain RPC request / API usage
-        # Possibly a paid relay or analytics call
-        # Return transaction hash explorer link
-        link = "ALCHEMY_LINK_HERE"
+    tweet = twitter_client.get_tweet(
+        tweet_id,
+        tweet_fields=["public_metrics"]
+    )
 
-    elif task == "4":
-        # Storage (Storj / IPFS / S3 compatible)
-        # Upload file or provide storage service
-        # Return file gateway URL / CID
-        link = "STORAGE_LINK_HERE"
+    metrics = tweet.data.public_metrics
 
-    # Register the task so we can evaluate later
-    TASK_REGISTRY[taskID] = {
-        "type": task,
-        "link": link
-    }
+    reach = metrics["impression_count"]
 
-    return {"id": taskID, "link": link}
+    # simple monetization assumption
+    rev = reach * 0.00001
 
-# ---------------------------
-# Evaluation
-# ---------------------------
+    return reach, rev
+
+
+# -----------------------------
+# OPENROUTER / API AGGREGATOR
+# -----------------------------
+
+def get_openrouter_usage(endpoint_url: str):
+
+    r = requests.get(endpoint_url)
+
+    if r.status_code != 200:
+        return 0, 0
+
+    data = r.json()
+
+    requests_count = data.get("requests", 0)
+    tokens = data.get("tokens", 0)
+
+    reach = requests_count
+    rev = tokens * 0.000002
+
+    return reach, rev
+
+
+# -----------------------------
+# CLONING_CT (conversion tracking)
+# -----------------------------
+
+def get_cloning_metrics(campaign_url: str):
+
+    r = requests.get(campaign_url)
+
+    if r.status_code != 200:
+        return 0, 0
+
+    data = r.json()
+
+    impressions = data.get("impressions", 0)
+    conversions = data.get("conversions", 0)
+
+    reach = impressions
+
+    # value per conversion
+    rev = conversions * 0.50
+
+    return reach, rev
+
+
+# -----------------------------
+# STORJ STORAGE METRICS
+# -----------------------------
+
+def get_storj_metrics(file_link: str):
+
+    parsed = urlparse(file_link)
+
+    bucket = parsed.path.split("/")[1]
+    key = "/".join(parsed.path.split("/")[2:])
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=os.getenv("STORJ_ENDPOINT"),
+        aws_access_key_id=os.getenv("STORJ_ACCESS_KEY"),
+        aws_secret_access_key=os.getenv("STORJ_SECRET_KEY")
+    )
+
+    obj = s3.head_object(
+        Bucket=bucket,
+        Key=key
+    )
+
+    size_bytes = obj["ContentLength"]
+
+    # assume download count from metadata
+    downloads = int(obj["Metadata"].get("downloads", 0))
+
+    reach = downloads
+
+    # Storj egress roughly $7/TB
+    rev = (size_bytes * downloads) / (1024**4) * 7
+
+    return reach, rev
+
+
+# -----------------------------
+# MAIN EVALUATION FUNCTION
+# -----------------------------
 
 def evaluate_task(task_id: str, link: str):
-    """
-    Evaluates the result of a previously executed task.
-
-    Returns:
-        {"reach": reach, "rev": rev}
-    """
 
     if task_id not in TASK_REGISTRY:
         return {"reach": 0, "rev": 0.0}
@@ -86,54 +133,50 @@ def evaluate_task(task_id: str, link: str):
     task_info = TASK_REGISTRY[task_id]
     task_type = task_info["type"]
 
-    # Default results
     reach = 0
     rev = 0.0
 
-    # ---------------- EVALUATION ----------------
+    try:
 
-    if task_type == "1":
-        # Twitter
-        # Check tweet analytics:
-        # views, impressions, likes, replies
-        # You would call Twitter API using the link
-        # Example: parse tweet ID from URL and fetch metrics
+        if task_type == "1":
+            reach, rev = get_twitter_metrics(link)
 
-        reach = random.randint(200, 2000)
-        rev = round(random.uniform(0.00, 0.20), 4)
+        elif task_type == "2":
+            reach, rev = get_openrouter_usage(link)
 
+        elif task_type == "3":
+            reach, rev = get_cloning_metrics(link)
 
-    elif task_type == "2":
-        # OpenRouter aggregator
-        # Check how many users used your endpoint
-        # Count API calls / tokens routed / referrals
-        # Pull usage analytics from your backend logs
+        elif task_type == "4":
+            reach, rev = get_storj_metrics(link)
 
-        reach = random.randint(20, 200)
-        rev = round(random.uniform(0.05, 0.80), 4)
+        elif task_type == "5":
+            # video handling (youtube example)
+            r = requests.get(
+                f"https://www.googleapis.com/youtube/v3/videos",
+                params={
+                    "part": "statistics",
+                    "id": link,
+                    "key": os.getenv("YOUTUBE_API_KEY")
+                }
+            )
 
+            data = r.json()
 
-    elif task_type == "3":
-        # Alchemy aggregator
-        # Verify RPC usage or relayed transactions
-        # Count successful paid requests
-        # Possibly query your usage dashboard
+            stats = data["items"][0]["statistics"]
 
-        reach = random.randint(10, 120)
-        rev = round(random.uniform(0.10, 1.20), 4)
+            views = int(stats.get("viewCount", 0))
 
+            reach = views
+            rev = views * 0.00002
 
-    elif task_type == "4":
-        # Storage
-        # Check if file downloaded / bandwidth served / rented storage
-        # Query storage provider stats
-        # Calculate payout based on usage
+    except Exception as e:
+        print("Evaluation error:", e)
 
-        reach = random.randint(0, 5)
-        rev = round(random.uniform(0.20, 0.60), 4)
-
-
-    # Remove after evaluation (prevents double claiming)
+    # prevent double claims
     del TASK_REGISTRY[task_id]
 
-    return {"reach": reach, "rev": rev}
+    return {
+        "reach": int(reach),
+        "rev": float(rev)
+    }
